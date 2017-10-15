@@ -1,0 +1,195 @@
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class PlexusEffect : MonoBehaviour {
+
+    [Header("Lines")]
+    public LineRenderer m_LinePrefab;
+    public float m_LineDst;
+    public int m_MaxLines;
+    public int m_MaxLinePerParticle;
+
+    [Range(0f, 1f)]
+    public float m_LineColourFromParticle;
+
+    [Range(0f, 1f)]
+    public float m_LineSizeFromParticle;
+
+    [Header("Mesh")]
+    public bool m_UseMesh;
+    public int m_MaxTriangleCount;
+    [Range(0f,1f)]
+    public float m_MeshColorFromParticle;
+
+    ParticleSystem m_PS;
+    ParticleSystem.Particle[] m_Particles;
+
+    MeshFilter m_MeshFilter;
+    Mesh m_Mesh;
+
+    Transform m_SimulationTransform;
+
+    List<LineRenderer> m_LinesPool = new List<LineRenderer>();
+
+    List<Vector3> m_Verticies = new List<Vector3>();
+    List<int> m_Triangles = new List<int>();
+    List<Color> m_VertexColors = new List<Color>();
+    
+    int m_VertexIndex;
+
+    int m_LineIndex;
+
+    private void Awake() {
+        m_PS = GetComponent<ParticleSystem>();
+        m_MeshFilter = GetComponent<MeshFilter>();
+
+        m_Mesh = new Mesh();
+    }
+
+    private void LateUpdate() {
+
+        m_Verticies.Clear();
+        m_Triangles.Clear();
+        m_VertexColors.Clear();
+        m_VertexIndex = 0;
+
+        int maxParticles = m_PS.main.maxParticles;
+        if (m_Particles == null || m_Particles.Length < maxParticles) {
+            m_Particles = new ParticleSystem.Particle[maxParticles];
+        }
+
+        m_PS.GetParticles(m_Particles);
+        int particlesCount = m_PS.particleCount;
+
+        m_LineIndex = 0;
+        int triangleCount = 0;
+
+        switch (m_PS.main.simulationSpace) {
+            case ParticleSystemSimulationSpace.Local: {
+                    m_SimulationTransform = transform;
+                    break;
+                }
+            case ParticleSystemSimulationSpace.World: {
+                    m_SimulationTransform = transform;
+                    break;
+
+                }
+            case ParticleSystemSimulationSpace.Custom: {
+                    m_SimulationTransform = m_PS.main.customSimulationSpace;
+                    break;
+                }
+        }
+
+        for (int i = 0; i < particlesCount; i++) {
+
+            ParticleSystem.Particle firstParticle = m_Particles[i];
+            int actualLinesCount = 0;
+            int lastIndex = 0;
+
+            if (m_LineIndex >= m_MaxLines) {
+                break;
+            }
+
+            for (int j = i + 1; j < particlesCount; j++) {
+
+                ParticleSystem.Particle secondParticle = m_Particles[j];
+
+                float particleSqrDst = (firstParticle.position - secondParticle.position).sqrMagnitude;
+
+                if (particleSqrDst < m_LineDst * m_LineDst) {
+                    LineRenderer line;
+                    if (m_LineIndex >= m_LinesPool.Count) {
+                        line = Instantiate(m_LinePrefab, m_SimulationTransform);
+                        m_LinesPool.Add(line);
+                    }
+                    else {
+                        line = m_LinesPool[m_LineIndex];
+                        line.gameObject.SetActive(true);
+                    }
+
+                    line.useWorldSpace = m_PS.main.simulationSpace == ParticleSystemSimulationSpace.World;
+
+                    line.SetPosition(0, firstParticle.position);
+                    line.SetPosition(1, secondParticle.position);
+
+                    line.startWidth = m_LinePrefab.startWidth * (1- m_LineSizeFromParticle) + firstParticle.GetCurrentSize(m_PS) * m_LineSizeFromParticle;
+                    line.endWidth = m_LinePrefab.endWidth * (1- m_LineSizeFromParticle) + secondParticle.GetCurrentSize(m_PS) * m_LineSizeFromParticle;
+
+                    line.startColor = Color.Lerp(m_LinePrefab.startColor, firstParticle.GetCurrentColor(m_PS), m_LineColourFromParticle);
+                    line.endColor = Color.Lerp(m_LinePrefab.endColor, secondParticle.GetCurrentColor(m_PS), m_LineColourFromParticle);
+
+                    ++m_LineIndex;
+                    ++actualLinesCount;
+
+                    if (actualLinesCount % 2 == 0 && triangleCount < m_MaxTriangleCount) {
+                        if (Vector3.SqrMagnitude(secondParticle.position - m_Particles[lastIndex].position) < m_LineDst * m_LineDst) {
+                            AddTriangle(i, j, lastIndex);
+                            triangleCount++;
+                        }
+                    }
+
+                    lastIndex = j;
+
+                    if (actualLinesCount >= m_MaxLinePerParticle || m_LineIndex >= m_MaxLines) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        //Hide unused lines
+        for (int i = m_LineIndex; i < m_LinesPool.Count; i++) {
+            m_LinesPool[i].gameObject.SetActive(false);
+        }
+
+        if (m_UseMesh) {
+            SetUpMesh();
+        }
+        else {
+            m_Mesh.Clear();
+        }
+    }
+
+    void SetUpMesh() {
+        m_Mesh.Clear();
+
+        m_Mesh.SetVertices(m_Verticies);
+        m_Mesh.triangles = m_Triangles.ToArray();
+        m_Mesh.SetColors(m_VertexColors);
+
+        m_Mesh.RecalculateNormals();
+
+        m_MeshFilter.mesh = m_Mesh;
+    }
+
+    void AddTriangle(int indexA, int indexB, int indexC) {
+        Vector3 vA = m_Particles[indexA].position;
+        Vector3 vB = m_Particles[indexB].position;
+        Vector3 vC = m_Particles[indexC].position;
+
+        if (m_PS.main.simulationSpace == ParticleSystemSimulationSpace.World) {
+            vA = m_SimulationTransform.InverseTransformPoint(vA);
+            vB = m_SimulationTransform.InverseTransformPoint(vB);
+            vC = m_SimulationTransform.InverseTransformPoint(vC);
+        }
+
+        m_Verticies.Add(vA);
+        m_Verticies.Add(vB);
+        m_Verticies.Add(vC);
+
+        m_Triangles.Add(m_VertexIndex);
+        m_Triangles.Add(m_VertexIndex + 1);
+        m_Triangles.Add(m_VertexIndex + 2);
+
+        Color colorA = Color.Lerp(Color.white, m_Particles[indexA].GetCurrentColor(m_PS), m_MeshColorFromParticle);
+        Color colorB = Color.Lerp(Color.white, m_Particles[indexB].GetCurrentColor(m_PS), m_MeshColorFromParticle);
+        Color colorC = Color.Lerp(Color.white, m_Particles[indexC].GetCurrentColor(m_PS), m_MeshColorFromParticle);
+
+        m_VertexColors.Add(colorA);
+        m_VertexColors.Add(colorB);
+        m_VertexColors.Add(colorC);
+
+        m_VertexIndex += 3;
+    }
+}

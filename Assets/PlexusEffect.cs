@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(ParticleSystem))]
+[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class PlexusEffect : MonoBehaviour {
 
     [Header("Lines")]
@@ -19,10 +21,11 @@ public class PlexusEffect : MonoBehaviour {
     [Header("Mesh")]
     public bool m_UseMesh;
     public int m_MaxTriangleCount;
-    [Range(0f,1f)]
+    [Range(0f, 1f)]
     public float m_MeshColorFromParticle;
 
     ParticleSystem m_PS;
+    ParticleSystem.MainModule m_ParticleMainModule;
     ParticleSystem.Particle[] m_Particles;
 
     MeshFilter m_MeshFilter;
@@ -35,7 +38,7 @@ public class PlexusEffect : MonoBehaviour {
     List<Vector3> m_Verticies = new List<Vector3>();
     List<int> m_Triangles = new List<int>();
     List<Color> m_VertexColors = new List<Color>();
-    
+
     int m_VertexIndex;
 
     int m_LineIndex;
@@ -43,6 +46,8 @@ public class PlexusEffect : MonoBehaviour {
     private void Awake() {
         m_PS = GetComponent<ParticleSystem>();
         m_MeshFilter = GetComponent<MeshFilter>();
+
+        m_ParticleMainModule = m_PS.main;
 
         m_Mesh = new Mesh();
     }
@@ -54,7 +59,7 @@ public class PlexusEffect : MonoBehaviour {
         m_VertexColors.Clear();
         m_VertexIndex = 0;
 
-        int maxParticles = m_PS.main.maxParticles;
+        int maxParticles = m_ParticleMainModule.maxParticles;
         if (m_Particles == null || m_Particles.Length < maxParticles) {
             m_Particles = new ParticleSystem.Particle[maxParticles];
         }
@@ -65,7 +70,7 @@ public class PlexusEffect : MonoBehaviour {
         m_LineIndex = 0;
         int triangleCount = 0;
 
-        switch (m_PS.main.simulationSpace) {
+        switch (m_ParticleMainModule.simulationSpace) {
             case ParticleSystemSimulationSpace.Local: {
                     m_SimulationTransform = transform;
                     break;
@@ -76,7 +81,7 @@ public class PlexusEffect : MonoBehaviour {
 
                 }
             case ParticleSystemSimulationSpace.Custom: {
-                    m_SimulationTransform = m_PS.main.customSimulationSpace;
+                    m_SimulationTransform = m_ParticleMainModule.customSimulationSpace;
                     break;
                 }
         }
@@ -108,21 +113,25 @@ public class PlexusEffect : MonoBehaviour {
                         line.gameObject.SetActive(true);
                     }
 
-                    line.useWorldSpace = m_PS.main.simulationSpace == ParticleSystemSimulationSpace.World;
+                    line.useWorldSpace = m_ParticleMainModule.simulationSpace == ParticleSystemSimulationSpace.World;
 
                     line.SetPosition(0, firstParticle.position);
                     line.SetPosition(1, secondParticle.position);
 
-                    line.startWidth = m_LinePrefab.startWidth * (1- m_LineSizeFromParticle) + firstParticle.GetCurrentSize(m_PS) * m_LineSizeFromParticle;
-                    line.endWidth = m_LinePrefab.endWidth * (1- m_LineSizeFromParticle) + secondParticle.GetCurrentSize(m_PS) * m_LineSizeFromParticle;
+                    if (m_LineSizeFromParticle > 0) {
+                        line.startWidth = m_LinePrefab.startWidth * (1 - m_LineSizeFromParticle) + firstParticle.GetCurrentSize(m_PS) * m_LineSizeFromParticle;
+                        line.endWidth = m_LinePrefab.endWidth * (1 - m_LineSizeFromParticle) + secondParticle.GetCurrentSize(m_PS) * m_LineSizeFromParticle;
+                    }
 
-                    line.startColor = Color.Lerp(m_LinePrefab.startColor, firstParticle.GetCurrentColor(m_PS), m_LineColourFromParticle);
-                    line.endColor = Color.Lerp(m_LinePrefab.endColor, secondParticle.GetCurrentColor(m_PS), m_LineColourFromParticle);
+                    if (m_LineColourFromParticle > 0) {
+                        line.startColor = Color.Lerp(m_LinePrefab.startColor, firstParticle.GetCurrentColor(m_PS), m_LineColourFromParticle);
+                        line.endColor = Color.Lerp(m_LinePrefab.endColor, secondParticle.GetCurrentColor(m_PS), m_LineColourFromParticle);
+                    }
 
                     ++m_LineIndex;
                     ++actualLinesCount;
 
-                    if (actualLinesCount % 2 == 0 && triangleCount < m_MaxTriangleCount) {
+                    if (actualLinesCount % 2 == 0 && triangleCount < m_MaxTriangleCount && m_UseMesh) {
                         if (Vector3.SqrMagnitude(secondParticle.position - m_Particles[lastIndex].position) < m_LineDst * m_LineDst) {
                             AddTriangle(i, j, lastIndex);
                             triangleCount++;
@@ -168,10 +177,19 @@ public class PlexusEffect : MonoBehaviour {
         Vector3 vB = m_Particles[indexB].position;
         Vector3 vC = m_Particles[indexC].position;
 
-        if (m_PS.main.simulationSpace == ParticleSystemSimulationSpace.World) {
-            vA = m_SimulationTransform.InverseTransformPoint(vA);
-            vB = m_SimulationTransform.InverseTransformPoint(vB);
-            vC = m_SimulationTransform.InverseTransformPoint(vC);
+        if (m_ParticleMainModule.simulationSpace == ParticleSystemSimulationSpace.World) {
+            vA = transform.InverseTransformPoint(vA);
+            vB = transform.InverseTransformPoint(vB);
+            vC = transform.InverseTransformPoint(vC);
+        }
+        else if (m_ParticleMainModule.simulationSpace == ParticleSystemSimulationSpace.Custom) {
+            vA = m_SimulationTransform.TransformPoint(vA);
+            vB = m_SimulationTransform.TransformPoint(vB);
+            vC = m_SimulationTransform.TransformPoint(vC);
+
+            vA = transform.InverseTransformPoint(vA);
+            vB = transform.InverseTransformPoint(vB);
+            vC = transform.InverseTransformPoint(vC);
         }
 
         m_Verticies.Add(vA);

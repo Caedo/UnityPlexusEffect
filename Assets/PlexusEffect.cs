@@ -4,16 +4,32 @@ using System.Collections.Generic;
 using UnityEngine;
 
 
-namespace ParticleEffects {
+namespace ParticleEffects
+{
     [RequireComponent(typeof(ParticleSystem))]
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
-    public class PlexusEffect : MonoBehaviour {
+    public class PlexusEffect : MonoBehaviour
+    {
 
         //Simple type is more efficient but can create wrong effects with too little lines per particle
         public enum MeshCreationType { Simple, Complex }
 
-        public class ParticleMeshData {
+        [System.Serializable]
+        public class ParticleMeshData
+        {
             public List<int> neibourghIndices = new List<int>();
+
+            public bool HasNeibourgh(int index)
+            {
+                for (int i = 0; i < neibourghIndices.Count; i++)
+                {
+                    if (neibourghIndices[i] == index)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
         }
 
         [Header("Lines")]
@@ -54,10 +70,10 @@ namespace ParticleEffects {
         List<ParticleMeshData> m_ParticleDataList = new List<ParticleMeshData>();
 
         int m_VertexIndex;
-
         int m_LineIndex;
 
-        private void Awake() {
+        private void Awake()
+        {
             m_PS = GetComponent<ParticleSystem>();
             m_MeshFilter = GetComponent<MeshFilter>();
 
@@ -66,7 +82,8 @@ namespace ParticleEffects {
             m_Mesh = new Mesh();
         }
 
-        private void LateUpdate() {
+        private void LateUpdate()
+        {
 
             m_Verticies.Clear();
             m_Triangles.Clear();
@@ -75,7 +92,8 @@ namespace ParticleEffects {
             m_VertexIndex = 0;
 
             int maxParticles = m_ParticleMainModule.maxParticles;
-            if (m_Particles == null || m_Particles.Length < maxParticles) {
+            if (m_Particles == null || m_Particles.Length < maxParticles)
+            {
                 m_Particles = new ParticleSystem.Particle[maxParticles];
             }
 
@@ -85,62 +103,65 @@ namespace ParticleEffects {
             m_LineIndex = 0;
             int triangleCount = 0;
 
-            switch (m_ParticleMainModule.simulationSpace) {
-                case ParticleSystemSimulationSpace.Local: {
+            switch (m_ParticleMainModule.simulationSpace)
+            {
+                case ParticleSystemSimulationSpace.Local:
+                    {
                         m_SimulationTransform = transform;
                         break;
                     }
-                case ParticleSystemSimulationSpace.World: {
+                case ParticleSystemSimulationSpace.World:
+                    {
                         m_SimulationTransform = transform;
                         break;
 
                     }
-                case ParticleSystemSimulationSpace.Custom: {
+                case ParticleSystemSimulationSpace.Custom:
+                    {
                         m_SimulationTransform = m_ParticleMainModule.customSimulationSpace;
                         break;
                     }
             }
 
-            for (int i = 0; i < particlesCount; i++) {
+            for (int i = 0; i < particlesCount; i++)
+            {
 
                 ParticleSystem.Particle firstParticle = m_Particles[i];
                 int actualLinesCount = 0;
                 int lastIndex = 0;
 
-                m_ParticleDataList.Add(new ParticleMeshData());
+                if (m_MeshCreationType == MeshCreationType.Complex)
+                    m_ParticleDataList.Add(new ParticleMeshData());
 
-                if (m_LineIndex >= m_MaxLines) {
+                if (m_LineIndex >= m_MaxLines)
+                {
                     break;
                 }
 
-                for (int j = i + 1; j < particlesCount; j++) {
+                for (int j = i + 1; j < particlesCount; j++)
+                {
 
                     ParticleSystem.Particle secondParticle = m_Particles[j];
 
                     float particleSqrDst = (firstParticle.position - secondParticle.position).sqrMagnitude;
 
-                    if (particleSqrDst < m_LineDst * m_LineDst) {
-                        LineRenderer line;
-                        if (m_LineIndex >= m_LinesPool.Count) {
-                            line = Instantiate(m_LinePrefab, m_SimulationTransform);
-                            m_LinesPool.Add(line);
-                        }
-                        else {
-                            line = m_LinesPool[m_LineIndex];
-                            line.gameObject.SetActive(true);
-                        }
+                    if (particleSqrDst < m_LineDst * m_LineDst)
+                    {
+                        LineRenderer line = GetNextLine();
 
                         line.useWorldSpace = m_ParticleMainModule.simulationSpace == ParticleSystemSimulationSpace.World;
 
                         line.SetPosition(0, firstParticle.position);
                         line.SetPosition(1, secondParticle.position);
 
-                        if (m_LineSizeFromParticle > 0) {
-                            line.startWidth = m_LinePrefab.startWidth * (1 - m_LineSizeFromParticle) + firstParticle.GetCurrentSize(m_PS) * m_LineSizeFromParticle;
-                            line.endWidth = m_LinePrefab.endWidth * (1 - m_LineSizeFromParticle) + secondParticle.GetCurrentSize(m_PS) * m_LineSizeFromParticle;
+                        if (m_LineSizeFromParticle > 0)
+                        {
+                            line.startWidth = Mathf.Lerp(m_LinePrefab.startWidth, firstParticle.GetCurrentSize(m_PS), m_LineSizeFromParticle);
+                            line.endWidth = Mathf.Lerp(m_LinePrefab.endWidth, secondParticle.GetCurrentSize(m_PS), m_LineSizeFromParticle);
                         }
 
-                        if (m_LineColourFromParticle > 0) {
+                        if (m_LineColourFromParticle > 0)
+                        {
                             line.startColor = Color.Lerp(m_LinePrefab.startColor, firstParticle.GetCurrentColor(m_PS), m_LineColourFromParticle);
                             line.endColor = Color.Lerp(m_LinePrefab.endColor, secondParticle.GetCurrentColor(m_PS), m_LineColourFromParticle);
                         }
@@ -148,9 +169,12 @@ namespace ParticleEffects {
                         ++m_LineIndex;
                         ++actualLinesCount;
 
-                        if (m_MeshCreationType == MeshCreationType.Simple) {
-                            if (actualLinesCount % m_ComparisonJump == 0 && triangleCount < m_MaxTriangleCount && m_UseMesh) {
-                                if (Vector3.SqrMagnitude(secondParticle.position - m_Particles[lastIndex].position) < m_LineDst * m_LineDst) {
+                        if (m_MeshCreationType == MeshCreationType.Simple)
+                        {
+                            if (actualLinesCount % m_ComparisonJump == 0 && triangleCount < m_MaxTriangleCount && m_UseMesh)
+                            {
+                                if (Vector3.SqrMagnitude(secondParticle.position - m_Particles[lastIndex].position) < m_LineDst * m_LineDst)
+                                {
                                     AddTriangle(i, j, lastIndex);
                                     triangleCount++;
                                 }
@@ -158,12 +182,13 @@ namespace ParticleEffects {
                             lastIndex = j;
 
                         }
-                        else {
+                        else
+                        {
                             m_ParticleDataList[i].neibourghIndices.Add(j);
                         }
 
-
-                        if (actualLinesCount >= m_MaxLinePerParticle || m_LineIndex >= m_MaxLines) {
+                        if (actualLinesCount >= m_MaxLinePerParticle || m_LineIndex >= m_MaxLines)
+                        {
                             break;
                         }
                     }
@@ -171,21 +196,26 @@ namespace ParticleEffects {
             }
 
             //Hide unused lines
-            for (int i = m_LineIndex; i < m_LinesPool.Count; i++) {
+            for (int i = m_LineIndex; i < m_LinesPool.Count; i++)
+            {
                 m_LinesPool[i].gameObject.SetActive(false);
             }
 
-            if (m_UseMesh) {
+            if (m_UseMesh)
+            {
                 SetUpMesh();
             }
-            else {
+            else
+            {
                 m_Mesh.Clear();
             }
         }
 
-        void SetUpMesh() {
+        void SetUpMesh()
+        {
 
-            if (m_MeshCreationType == MeshCreationType.Complex) {
+            if (m_MeshCreationType == MeshCreationType.Complex)
+            {
                 CreateMeshFromParticleData();
             }
 
@@ -200,45 +230,74 @@ namespace ParticleEffects {
             m_MeshFilter.mesh = m_Mesh;
         }
 
-        private void CreateMeshFromParticleData() {
+        private void CreateMeshFromParticleData()
+        {
             int trianglesCount = 0;
 
-            for (int i = 0; i < m_ParticleDataList.Count; i++) {
+            for (int i = 0; i < m_ParticleDataList.Count; i++)
+            {
                 var neibourghs = m_ParticleDataList[i].neibourghIndices;
-                for (int j = 0; j < neibourghs.Count - 1; j++) {
-                    ParticleSystem.Particle firstParticle = m_Particles[neibourghs[j]];
-                    ParticleSystem.Particle secondParticle = m_Particles[neibourghs[j + 1]];
+                for (int j = 0; j < neibourghs.Count - 1; j++)
+                {
 
-                    float sqrDist = (firstParticle.position - secondParticle.position).sqrMagnitude;
+                    int firstParticleIndex = neibourghs[j];
+                    int secondParticleIndex = neibourghs[j + 1];
 
-                    if (sqrDist < m_LineDst * m_LineDst && j % m_ComparisonJump == 0) {
-                        AddTriangle(i, neibourghs[j], neibourghs[j + 1]);
+                    if (firstParticleIndex >= m_ParticleDataList.Count || secondParticleIndex >= m_ParticleDataList.Count)
+                    {
+                        //Debug.LogError("LuL: " + firstParticleIndex + " " + m_ParticleDataList.Count);
+                        continue;
+                    }
+
+                    if (m_ParticleDataList[firstParticleIndex].HasNeibourgh(secondParticleIndex) ||
+                        m_ParticleDataList[secondParticleIndex].HasNeibourgh(firstParticleIndex))
+                    {
+
+                        AddTriangle(i, firstParticleIndex, secondParticleIndex);
                         trianglesCount++;
                     }
 
-                    if (trianglesCount > m_MaxTriangleCount) {
-                        break;
+                    if (trianglesCount > m_MaxTriangleCount)
+                    {
+                        return;
                     }
-                }
-
-                if (trianglesCount > m_MaxTriangleCount) {
-                    break;
                 }
             }
         }
 
-        void AddTriangle(int indexA, int indexB, int indexC) {
+        LineRenderer GetNextLine()
+        {
+            LineRenderer line;
+            if (m_LineIndex >= m_LinesPool.Count)
+            {
+                line = Instantiate(m_LinePrefab, m_SimulationTransform);
+                m_LinesPool.Add(line);
+            }
+            else
+            {
+                line = m_LinesPool[m_LineIndex];
+                line.gameObject.SetActive(true);
+            }
+
+            return line;
+        }
+
+        void AddTriangle(int indexA, int indexB, int indexC)
+        {
+            //Debug.Log("Added triangle");
             Vector3 vA = m_Particles[indexA].position;
             Vector3 vB = m_Particles[indexB].position;
             Vector3 vC = m_Particles[indexC].position;
 
             //TODO: Zmienić na macierze
-            if (m_ParticleMainModule.simulationSpace == ParticleSystemSimulationSpace.World) {
+            if (m_ParticleMainModule.simulationSpace == ParticleSystemSimulationSpace.World)
+            {
                 vA = transform.InverseTransformPoint(vA);
                 vB = transform.InverseTransformPoint(vB);
                 vC = transform.InverseTransformPoint(vC);
             }
-            else if (m_ParticleMainModule.simulationSpace == ParticleSystemSimulationSpace.Custom) {
+            else if (m_ParticleMainModule.simulationSpace == ParticleSystemSimulationSpace.Custom)
+            {
                 vA = m_SimulationTransform.TransformPoint(vA);
                 vB = m_SimulationTransform.TransformPoint(vB);
                 vC = m_SimulationTransform.TransformPoint(vC);

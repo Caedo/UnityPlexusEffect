@@ -291,7 +291,7 @@ ParticleSystem:
   moveWithTransform: 1
   moveWithCustomTransform: {fileID: 33678155}
   scalingMode: 1
-  randomSeed: 1721472460
+  randomSeed: 2072777015
   InitialModule:
     serializedVersion: 3
     enabled: 1
@@ -1819,7 +1819,7 @@ ParticleSystem:
     strength:
       serializedVersion: 2
       minMaxState: 0
-      scalar: 1.24
+      scalar: 0.92
       minScalar: 1
       maxCurve:
         serializedVersion: 2
@@ -1940,7 +1940,7 @@ ParticleSystem:
         m_PostInfinity: 2
         m_RotationOrder: 4
     separateAxes: 0
-    frequency: 0.69
+    frequency: 0.43
     damping: 1
     octaves: 1
     octaveMultiplier: 0.5
@@ -3525,8 +3525,8 @@ MonoBehaviour:
   m_MaxLinesPerParticle: 3
   m_LineColorFromParticle: 0
   m_LineSizeFromParticle: 0
-  m_UseMesh: 1
-  m_MaxTrianglesCount: 40
+  m_UseMesh: 0
+  m_MaxTrianglesCount: 20
   m_MeshColorFromParticle: 0
 --- !u!33 &2109451412
 MeshFilter:

@@ -60,7 +60,7 @@ namespace ParticleEffects
     public class PlexusEffect : MonoBehaviour
     {
 
-        //[Header("Lines")]
+        [Header("Lines")]
         public LineRenderer m_LinePrefab;
         public float m_SearchDst;
         public int m_MaxLinesCount;
@@ -72,7 +72,7 @@ namespace ParticleEffects
         [Range(0f, 1f)]
         public float m_LineSizeFromParticle;
 
-        //[Header("Mesh")]
+        [Header("Mesh")]
         public bool m_UseMesh;
         public int m_MaxTrianglesCount;
 

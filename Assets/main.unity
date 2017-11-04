@@ -110,6 +110,10 @@ NavMeshSettings:
     tileSize: 256
     accuratePlacement: 0
   m_NavMeshData: {fileID: 0}
+--- !u!4 &33678155 stripped
+Transform:
+  m_PrefabParentObject: {fileID: 400000, guid: 3681543e5b0f59742b73073cb379cdc6, type: 2}
+  m_PrefabInternal: {fileID: 491270889}
 --- !u!1001 &491270889
 Prefab:
   m_ObjectHideFlags: 0
@@ -285,9 +289,9 @@ ParticleSystem:
       m_PostInfinity: 2
       m_RotationOrder: 4
   moveWithTransform: 1
-  moveWithCustomTransform: {fileID: 0}
+  moveWithCustomTransform: {fileID: 33678155}
   scalingMode: 1
-  randomSeed: -192221308
+  randomSeed: 1721472460
   InitialModule:
     serializedVersion: 3
     enabled: 1
@@ -3516,16 +3520,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_LinePrefab: {fileID: 120670385549086406, guid: cb59c01c635c06548ade774c53d5f403,
     type: 2}
-  m_LineDst: 2
-  m_MaxLines: 160
-  m_MaxLinePerParticle: 3
-  m_LineColourFromParticle: 0.664
+  m_SearchDst: 2
+  m_MaxLinesCount: 160
+  m_MaxLinesPerParticle: 3
+  m_LineColorFromParticle: 0
   m_LineSizeFromParticle: 0
-  m_MeshCreationType: 1
   m_UseMesh: 1
-  m_MaxTriangleCount: 20
-  m_ComparisonJump: 2
-  m_MeshColorFromParticle: 0.672
+  m_MaxTrianglesCount: 40
+  m_MeshColorFromParticle: 0
 --- !u!33 &2109451412
 MeshFilter:
   m_ObjectHideFlags: 0

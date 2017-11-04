@@ -9,14 +9,14 @@ namespace ParticleEffects
     [System.Serializable]
     public class ParticleMeshData
     {
-        public List<int> neibourghIndices = new List<int>();
+        public List<int> neighborIndices = new List<int>();
 
-        int actualIndex = 0;
-        public bool HasNeibourgh(int index)
+        private int neighborCount = 0;
+        public bool HasNeighbor(int index)
         {
-            for (int i = 0; i < neibourghIndices.Count; i++)
+            for (int i = 0; i < neighborIndices.Count; i++)
             {
-                if (neibourghIndices[i] == index)
+                if (neighborIndices[i] == index)
                 {
                     return true;
                 }
@@ -24,34 +24,34 @@ namespace ParticleEffects
             return false;
         }
 
-        public void AddNeibourgh(int index)
+        public void AddNeighbor(int index)
         {
-            if (actualIndex >= neibourghIndices.Count)
+            if (neighborCount >= neighborIndices.Count)
             {
-                neibourghIndices.Add(index);
+                neighborIndices.Add(index);
             }
             else
             {
-                neibourghIndices[actualIndex] = index;
+                neighborIndices[neighborCount] = index;
             }
 
-            ++actualIndex;
+            ++neighborCount;
         }
 
-        public int NeibourghCount
+        public int NeighborCount
         {
             get
             {
-                return actualIndex;
+                return neighborCount;
             }
         }
 
         public void ClearData()
         {
-            actualIndex = 0;
-            for (int i = 0; i < neibourghIndices.Count; i++)
+            neighborCount = 0;
+            for (int i = 0; i < neighborIndices.Count; ++i)
             {
-                neibourghIndices[i] = -1;
+                neighborIndices[i] = -1;
             }
         }
     }
@@ -60,7 +60,7 @@ namespace ParticleEffects
     public class PlexusEffect : MonoBehaviour
     {
 
-        [Header("Lines")]
+        //[Header("Lines")]
         public LineRenderer m_LinePrefab;
         public float m_SearchDst;
         public int m_MaxLinesCount;
@@ -72,10 +72,10 @@ namespace ParticleEffects
         [Range(0f, 1f)]
         public float m_LineSizeFromParticle;
 
-        [Header("Mesh")]
+        //[Header("Mesh")]
         public bool m_UseMesh;
         public int m_MaxTrianglesCount;
-        public int m_ComparisonJump = 2;
+
         [Range(0f, 1f)]
         public float m_MeshColorFromParticle;
 
@@ -129,10 +129,12 @@ namespace ParticleEffects
 
         private void LateUpdate()
         {
-
-            m_Verticies.Clear();
-            m_Triangles.Clear();
-            m_VertexColors.Clear();
+            if (m_UseMesh)
+            {
+                m_Verticies.Clear();
+                m_Triangles.Clear();
+                m_VertexColors.Clear();
+            }
 
             CreateOrUpdateArrays();
 
@@ -144,7 +146,7 @@ namespace ParticleEffects
 
             if (m_UseMesh)
             {
-                for (int i = 0; i < m_ParticleCount; i++)
+                for (int i = 0; i < m_ParticleCount; ++i)
                 {
                     m_ParticleMeshData[i].ClearData();
                 }
@@ -172,20 +174,20 @@ namespace ParticleEffects
                     }
             }
 
-            for (int i = 0; i < m_ParticleCount; i++)
+            for (int i = 0; i < m_ParticleCount; ++i)
             {
 
                 ParticleSystem.Particle firstParticle = m_Particles[i];
-                int actualLinesCount = 0;
+                int currentLinesCount = 0;
 
                 if (m_LineIndex >= m_MaxLinesCount)
                 {
                     break;
                 }
 
-                for (int j = i + 1; j < m_ParticleCount; j++)
+                for (int j = i + 1; j < m_ParticleCount; ++j)
                 {
-                    if (actualLinesCount >= m_MaxLinesPerParticle || m_LineIndex >= m_MaxLinesCount)
+                    if (currentLinesCount >= m_MaxLinesPerParticle || m_LineIndex >= m_MaxLinesCount)
                     {
                         break;
                     }
@@ -203,31 +205,27 @@ namespace ParticleEffects
                         line.SetPosition(0, firstParticle.position);
                         line.SetPosition(1, secondParticle.position);
 
-                        if (m_LineSizeFromParticle > 0)
-                        {
-                            line.startWidth = Mathf.Lerp(m_LineWidths[0], firstParticle.GetCurrentSize(m_PS), m_LineSizeFromParticle);
-                            line.endWidth = Mathf.Lerp(m_LineWidths[1], secondParticle.GetCurrentSize(m_PS), m_LineSizeFromParticle);
-                        }
+                        //Set line Width
+                        line.startWidth = Mathf.Lerp(m_LineWidths[0], firstParticle.GetCurrentSize(m_PS), m_LineSizeFromParticle);
+                        line.endWidth = Mathf.Lerp(m_LineWidths[1], secondParticle.GetCurrentSize(m_PS), m_LineSizeFromParticle);
 
-                        if (m_LineColorFromParticle > 0)
-                        {
-                            line.startColor = Color.Lerp(m_LineColors[0], firstParticle.GetCurrentColor(m_PS), m_LineColorFromParticle);
-                            line.endColor = Color.Lerp(m_LineColors[1], secondParticle.GetCurrentColor(m_PS), m_LineColorFromParticle);
-                        }
+                        //Set Line Color
+                        line.startColor = Color.Lerp(m_LineColors[0], firstParticle.GetCurrentColor(m_PS), m_LineColorFromParticle);
+                        line.endColor = Color.Lerp(m_LineColors[1], secondParticle.GetCurrentColor(m_PS), m_LineColorFromParticle);
 
                         ++m_LineIndex;
-                        ++actualLinesCount;
+                        ++currentLinesCount;
 
                         if (m_UseMesh)
                         {
-                            m_ParticleMeshData[i].AddNeibourgh(j);
+                            m_ParticleMeshData[i].AddNeighbor(j);
                         }
                     }
                 }
             }
 
             //Hide unused lines
-            for (int i = m_LineIndex; i < m_LinePool.Count; i++)
+            for (int i = m_LineIndex; i < m_LinePool.Count; ++i)
             {
                 m_LinePool[i].gameObject.SetActive(false);
             }
@@ -262,7 +260,7 @@ namespace ParticleEffects
 
         void SetUpMesh()
         {
-            CreateMeshFromParticleData();
+            CreateTrianglesFromParticleData();
 
             m_Mesh.Clear();
 
@@ -275,11 +273,11 @@ namespace ParticleEffects
             m_MeshFilter.mesh = m_Mesh;
         }
 
-        private void CreateMeshFromParticleData()
+        private void CreateTrianglesFromParticleData()
         {
             int trianglesCount = 0;
 
-            for (int i = 0; i < m_ParticleCount; i++)
+            for (int i = 0; i < m_ParticleCount; ++i)
             {
 
                 if (trianglesCount >= m_MaxTrianglesCount)
@@ -287,18 +285,18 @@ namespace ParticleEffects
                     return;
                 }
 
-                var neibourghs = m_ParticleMeshData[i].neibourghIndices;
+                var neibourghs = m_ParticleMeshData[i].neighborIndices;
 
-                for (int j = 0; j < m_ParticleMeshData[i].NeibourghCount - 1; j++)
+                for (int j = 0; j < m_ParticleMeshData[i].NeighborCount - 1; ++j)
                 {
 
                     int firstParticleIndex = neibourghs[j];
                     int secondParticleIndex = neibourghs[j + 1];
 
-                    if (m_ParticleMeshData[firstParticleIndex].HasNeibourgh(secondParticleIndex) ||
-                        m_ParticleMeshData[secondParticleIndex].HasNeibourgh(firstParticleIndex))
+                    //if particles are neighbors, create triangle
+                    if (m_ParticleMeshData[firstParticleIndex].HasNeighbor(secondParticleIndex) ||
+                        m_ParticleMeshData[secondParticleIndex].HasNeighbor(firstParticleIndex))
                     {
-
                         AddTriangle(i, firstParticleIndex, secondParticleIndex);
                         ++trianglesCount;
                     }
@@ -330,6 +328,7 @@ namespace ParticleEffects
             Vector3 vB = m_Particles[indexB].position;
             Vector3 vC = m_Particles[indexC].position;
 
+            //Transform positions to correct space
             if (m_ParticleMainModule.simulationSpace != ParticleSystemSimulationSpace.Local)
             {
                 vA = m_SimulationTransformMatrix.MultiplyPoint(vA);
@@ -345,6 +344,7 @@ namespace ParticleEffects
             m_Triangles.Add(m_VertexIndex + 1);
             m_Triangles.Add(m_VertexIndex + 2);
 
+            //If need to use Vertex colors, add them
             if (m_MeshColorFromParticle > 0)
             {
                 Color colorA = Color.Lerp(Color.white, m_Particles[indexA].GetCurrentColor(m_PS), m_MeshColorFromParticle);
